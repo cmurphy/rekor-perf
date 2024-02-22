@@ -16,6 +16,6 @@ scrape_configs:
       - targets:
           - 'localhost:2112'
 EOF
-prometheus --storage.tsdb.path=./metrics2 --config.file=prometheus.yml >prom.log 2>&1 &
+setsid prometheus --storage.tsdb.path=./metrics2 --config.file=prometheus.yml >prom.log 2>&1 &
 PROM_PID=$!
 echo $PROM_PID

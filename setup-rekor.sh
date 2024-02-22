@@ -1,13 +1,9 @@
 #!/bin/bash
 
-if [ -d rekor ] ; then
-    pushd rekor
-    git pull
-    popd
-else
+if [ ! -d rekor ] ; then
     git clone https://github.com/sigstore/rekor
 fi
-pushd rekor
+pushd rekor >/dev/null
 docker-compose up -d
 for i in `seq 1 6` ; do
     if docker-compose ps | grep rekor_rekor-server_1 | grep healthy ; then

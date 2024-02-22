@@ -1,5 +1,4 @@
 #!/bin/bash
 
-pushd rekor
+pushd rekor >/dev/null
 docker-compose down
-popd

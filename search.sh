@@ -6,12 +6,14 @@ if [ "${DIR}" == "" ] ; then
     exit 1
 fi
 
-echo $DIR
+if ! which hyperfine >/dev/null ; then
+    echo "hyperfine is not installed yet"
+    exit 1
+fi
 
 sumblob1=$(sha256sum ${DIR}/blob1 | cut -d ' ' -f1)
 sumblob2=$(sha256sum ${DIR}/blob2 | cut -d ' ' -f1)
 sumblobnone=$(sha256sum ${DIR}/blobnone | cut -d ' ' -f1)
-echo $sumblob1
 # Search for entries using public key test1@example.com (should be many), test2@example.com (should be few), notreal@example.com (should be none)
 hyperfine --style basic --warmup 10 --ignore-failure --parameter-list public_key ${DIR}/test1@example.com.key,${DIR}/test2@example.com.key,${DIR}/notreal@example.com.key "rekor-cli search --rekor_server http://localhost:3000 --public-key {public_key}"
 # Search for entries using the sha256 sum of blob1 (should be many), blob2 (should be few), blobnone (should be none)

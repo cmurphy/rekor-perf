@@ -4,35 +4,58 @@ cleanup() {
     code=$?
     if [ $code -ne 0 ] ; then
         echo "An error occurred, check perf.log"
-    fi
-    ./teardown-rekor.sh >> perf.log 2>&1
-    ./cleanup-keys.sh >> perf.log 2>&1
-    exit $code
-}
-trap cleanup EXIT
-
-echo > perf.log
-
-./setup-rekor.sh >> perf.log 2>&1
-index_backend=$(grep -o 'search_index.storage_provider=[a-z]\+' rekor/docker-compose.yml | cut -d '=' -f 2)
-echo "Gathering insertion and retrieval metrics for index backend [${index_backend}]."
-echo "Check perf.log for detailed output."
-./create-keys.sh >> perf.log 2>&1
-PROM_PID=$(./setup-prometheus.sh)
-cleanup_prom() {
-    code=$?
-    if [ $code -ne 0 ] ; then
-        echo "An error occurred, check perf.log"
         echo "Waiting 30 seconds to start cleanup, press ^C to cancel cleanup."
         sleep 30
     fi
-    ./teardown-rekor.sh >> perf.log 2>&1
-    ./cleanup-keys.sh >> perf.log 2>&1
-    ./teardown-prometheus.sh $PROM_PID >> perf.log 2>&1
+    $@
     exit $code
 }
-trap cleanup_prom EXIT
+
+echo > perf.log
+
+echo "Setting up rekor..."
+./setup-rekor.sh >> perf.log 2>&1
+cleanup_rekor() {
+    echo "Cleaning up rekor..."
+    ./teardown-rekor.sh >> perf.log 2>&1
+}
+trap 'cleanup cleanup_rekor' EXIT
+
+index_backend=$(grep -o 'search_index.storage_provider=[a-z]\+' rekor/docker-compose.yml | cut -d '=' -f 2)
+echo "Gathering insertion and retrieval metrics for index backend [${index_backend}]."
+echo "Check perf.log for detailed output."
+
+echo "Creating keys..."
+./create-keys.sh >> perf.log 2>&1
+cleanup_keys() {
+    cleanup_rekor
+    echo "Cleaning up keys..."
+    ./cleanup-keys.sh >> perf.log 2>&1
+}
+trap 'cleanup cleanup_keys' EXIT
+
+echo "Setting up prometheus..."
+PROM_PID=$(./setup-prometheus.sh)
+cleanup_prom() {
+    cleanup_keys
+    echo "Cleaning up prometheus..."
+    ./teardown-prometheus.sh $PROM_PID >> perf.log 2>&1
+}
+trap 'cleanup cleanup_prom' EXIT
+
+echo "Uploading entries..."
 DIR=$(./upload.sh 2>> perf.log)
+cleanup_dir() {
+    cleanup_prom
+    rm -rf $DIR
+}
+trap 'cleanup cleanup_dir' EXIT
+
+echo "Getting metrics for inserts..."
 ./query-inserts.sh
+
+echo "Running search requests..."
 ./search.sh $DIR >> perf.log 2>&1
+
+echo "Getting metrics for searches..."
 ./query-search.sh
