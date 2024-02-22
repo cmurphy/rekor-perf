@@ -1,8 +1,11 @@
 #!/bin/bash
 #
-# Create 10 different public keys
-for i in $(seq 1 10) ; do
-    gpg --batch --gen-key <<EOF
+
+N=$1
+
+# Create N different public keys
+for i in $(seq 1 $N) ; do
+    gpg --batch --gen-key 2>/dev/null <<EOF
 Key-Type: 1
 Key-Length: 1024
 Name-Real: test${i}
@@ -13,7 +16,7 @@ EOF
 done
 
 # Create one more key that won't ever be used for signing
-gpg --batch --gen-key <<EOF
+gpg --batch --gen-key 2>/dev/null <<EOF
 Key-Type: 1
 Key-Length: 1024
 Name-Real: notreal

@@ -13,6 +13,8 @@ cleanup() {
 
 echo > perf.log
 
+RUNS=${1-:1000}
+
 echo "Setting up rekor..."
 ./setup-rekor.sh >> perf.log 2>&1
 cleanup_rekor() {
@@ -26,7 +28,7 @@ echo "Gathering insertion and retrieval metrics for index backend [${index_backe
 echo "Check perf.log for detailed output."
 
 echo "Creating keys..."
-./create-keys.sh >> perf.log 2>&1
+./create-keys.sh $RUNS >> perf.log 2>&1
 cleanup_keys() {
     cleanup_rekor
     echo "Cleaning up keys..."
@@ -44,7 +46,7 @@ cleanup_prom() {
 trap 'cleanup cleanup_prom' EXIT
 
 echo "Uploading entries..."
-DIR=$(./upload.sh 2>> perf.log)
+DIR=$(./upload.sh $RUNS 2>> perf.log)
 cleanup_dir() {
     cleanup_prom
     rm -rf $DIR
@@ -55,7 +57,7 @@ echo "Getting metrics for inserts..."
 ./query-inserts.sh
 
 echo "Running search requests..."
-./search.sh $DIR >> perf.log 2>&1
+./search.sh $DIR $RUNS >> perf.log 2>&1
 
 echo "Getting metrics for searches..."
 ./query-search.sh
