@@ -27,19 +27,10 @@ index_backend=$(grep -o 'search_index.storage_provider=[a-z]\+' rekor/docker-com
 echo "Gathering insertion and retrieval metrics for index backend [${index_backend}]."
 echo "Check perf.log for detailed output."
 
-echo "Creating keys..."
-./create-keys.sh $RUNS >> perf.log 2>&1
-cleanup_keys() {
-    cleanup_rekor
-    echo "Cleaning up keys..."
-    ./cleanup-keys.sh >> perf.log 2>&1
-}
-trap 'cleanup cleanup_keys' EXIT
-
 echo "Setting up prometheus..."
 PROM_PID=$(./setup-prometheus.sh)
 cleanup_prom() {
-    cleanup_keys
+    cleanup_rekor
     echo "Cleaning up prometheus..."
     ./teardown-prometheus.sh $PROM_PID >> perf.log 2>&1
 }
@@ -47,11 +38,13 @@ trap 'cleanup cleanup_prom' EXIT
 
 echo "Uploading entries..."
 DIR=$(./upload.sh $RUNS 2>> perf.log)
-cleanup_dir() {
+cleanup() {
     cleanup_prom
     rm -rf $DIR
+    echo "Cleaning up keys..."
+    ./cleanup-keys.sh >> perf.log 2>&1
 }
-trap 'cleanup cleanup_dir' EXIT
+trap 'cleanup cleanup' EXIT
 
 echo "Getting metrics for inserts..."
 ./query-inserts.sh
