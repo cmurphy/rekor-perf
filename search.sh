@@ -5,7 +5,7 @@ if [ "${DIR}" == "" ] ; then
     echo "must set provide the artifact directory"
     exit 1
 fi
-RUNS=${2-:1000}
+RUNS=${2:-1000}
 
 if ! which hyperfine >/dev/null ; then
     echo "hyperfine is not installed yet"

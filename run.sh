@@ -13,7 +13,7 @@ cleanup() {
 
 echo > perf.log
 
-RUNS=${1-:1000}
+RUNS=${1:-1000}
 
 echo "Setting up rekor..."
 ./setup-rekor.sh >> perf.log 2>&1
