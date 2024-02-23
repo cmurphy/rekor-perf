@@ -50,7 +50,7 @@ echo "Getting metrics for inserts..."
 ./query-inserts.sh
 
 echo "Running search requests..."
-./search.sh $DIR $RUNS >> perf.log 2>&1
+./search.sh $DIR >> perf.log 2>&1
 
 echo "Getting metrics for searches..."
 ./query-search.sh
