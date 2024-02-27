@@ -38,13 +38,13 @@ trap 'cleanup cleanup_prom' EXIT
 
 echo "Uploading entries..."
 DIR=$(./upload.sh $RUNS 2>> perf.log)
-cleanup() {
+cleanup_all() {
     cleanup_prom
     rm -rf $DIR
     echo "Cleaning up keys..."
     ./cleanup-keys.sh >> perf.log 2>&1
 }
-trap 'cleanup cleanup' EXIT
+trap 'cleanup cleanup_all' EXIT
 
 echo "Getting metrics for inserts..."
 ./query-inserts.sh
