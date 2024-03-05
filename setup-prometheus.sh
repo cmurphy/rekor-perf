@@ -1,8 +1,8 @@
 #!/bin/bash -e
 
 if ! which prometheus >/dev/null ; then
-    echo "prometheus is not installed yet"
-    exit 1
+    sudo apt install prometheus -y
+    sudo systemctl disable --now prometheus
 fi
 
 mkdir -p prometheus >/dev/null
@@ -14,7 +14,7 @@ scrape_configs:
     scrape_interval: 1s
     static_configs:
       - targets:
-          - 'localhost:2112'
+          - '$REKOR_METRICS'
 EOF
 setsid prometheus --storage.tsdb.path=./metrics2 --config.file=prometheus.yml >prom.log 2>&1 &
 PROM_PID=$!

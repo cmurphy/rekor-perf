@@ -40,7 +40,7 @@ for i in $(seq 1 $N) ; do
     sig=${dir}/$(uuidgen).asc
     (
     gpg --armor -u $user --output $sig --detach-sig ${dir}/blob${i} 1>&2
-    rekor-cli upload --rekor_server http://localhost:3000 --signature $sig --public-key ${dir}/${user}.key --artifact ${dir}/blob${i} 1>&2
+    rekor-cli upload --rekor_server $REKOR_URL --signature $sig --public-key ${dir}/${user}.key --artifact ${dir}/blob${i} 1>&2
     ) &
 done
 
@@ -60,7 +60,7 @@ for i in $(seq 2 $N) ; do
     user=${name}@example.com
     (
         gpg --armor -u $user --output $sig --detach-sig ${dir}/blob1 1>&2
-        rekor-cli upload --rekor_server http://localhost:3000 --signature $sig --public-key ${dir}/${user}.key --artifact ${dir}/blob1 1>&2
+        rekor-cli upload --rekor_server $REKOR_URL --signature $sig --public-key ${dir}/${user}.key --artifact ${dir}/blob1 1>&2
     ) &
     if [ $i -ne 2 ] ; then
         deletekey tmp${i}

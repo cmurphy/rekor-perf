@@ -11,26 +11,25 @@ cleanup() {
     exit $code
 }
 
-echo > perf.log
+echo -n > perf.log
 
 RUNS=${1:-1000}
+INDEX_BACKEND=${INDEX_BACKEND:-redis}
+
+echo "Gathering insertion and retrieval metrics for index backend [${INDEX_BACKEND}]."
+echo "Check perf.log for detailed output."
+
+echo "Configuring the bastion..."
+./setup-bastion.sh
 
 echo "Setting up rekor..."
-./setup-rekor.sh >> perf.log 2>&1
-cleanup_rekor() {
-    echo "Cleaning up rekor..."
-    ./teardown-rekor.sh >> perf.log 2>&1
-}
-trap 'cleanup cleanup_rekor' EXIT
+./setup-rekor.sh
 
-index_backend=$(grep -o 'search_index.storage_provider=[a-z]\+' rekor/docker-compose.yml | cut -d '=' -f 2)
-echo "Gathering insertion and retrieval metrics for index backend [${index_backend}]."
-echo "Check perf.log for detailed output."
+source settings.vars
 
 echo "Setting up prometheus..."
 PROM_PID=$(./setup-prometheus.sh)
 cleanup_prom() {
-    cleanup_rekor
     echo "Cleaning up prometheus..."
     ./teardown-prometheus.sh $PROM_PID >> perf.log 2>&1
 }
