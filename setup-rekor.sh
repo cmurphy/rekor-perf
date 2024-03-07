@@ -20,7 +20,7 @@ server:
     enabled: false
   image:
     repository: projectsigstore/rekor/ci/rekor/rekor-server
-    version: $sha
+    version: '$sha'
 EOF
 
 helm upgrade -i rekor sigstore/rekor -n rekor-system --create-namespace --values values.yaml
