@@ -1,7 +1,7 @@
 #!/bin/bash -e
 
 if [ -z "${MYSQL_PASS}" ] ; then
-    echo 'Set $MYSQL_PASS for the trillian mysql user. This value can be found from your terraform host using `terraform outputs -json | jq -r .mysql_pass.value`.'
+    echo 'Set $MYSQL_PASS for the trillian mysql user. This value can be found from your terraform host using `terraform output -json | jq -r .mysql_pass.value`.'
     exit 1
 fi
 

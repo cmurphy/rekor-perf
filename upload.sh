@@ -1,72 +1,39 @@
-#!/bin/bash -e
-
-createkey() {
-    name=$1
-    gpg --batch --gen-key 2>/dev/null <<EOF
-Key-Type: 1
-Key-Length: 1024
-Name-Real: $name
-Name-Email: $name@example.com
-Expire-Date: 1
-%no-protection
-EOF
-    gpg --export --armor ${name}@example.com > ${dir}/${name}@example.com.key
-}
-
-deletekey() {
-    name=$1
-    gpg --list-secret-keys --with-colons --fingerprint | grep -B2 ${name}@example.com | sed -n 's/^fpr:::::::::\([[:alnum:]]\+\):/\1/p' | xargs gpg --batch --yes --delete-secret-keys
-    gpg --list-keys --with-colons --fingerprint | grep -B1 ${name}@example.com | sed -n 's/^fpr:::::::::\([[:alnum:]]\+\):/\1/p' | xargs gpg --batch --yes --delete-keys
-}
+#!/bin/bash
 
 N=$1
 
-# Create N artifacts with different contents
-dir=$(mktemp -d)
-for i in $(seq 1 $N) ; do
-    echo hello${i} > ${dir}/blob${i}
-done
-# Create an extra that won't ever be signed
-echo hellohello > ${dir}/blobnone
+if [ ! -f indices.csv ] ; then
+    # N artifacts, 1 user
+    for i in $(seq 1 $N) ; do
+        uuid=$(dbus-uuidgen)
+        echo user1@example.com,$uuid >> indices.csv
+        sha=$(echo $i | sha256sum | cut -d ' ' -f 1)
+        echo $sha,$uuid >> indices.csv
+    done
 
-# Create one signing key
-createkey user1
-# Create a key that won't be used
-createkey notreal
+    # 1 artifact, N users
+    sha=$(echo 1 | sha256sum | cut -d ' ' -f 1)
+    for i in $(seq 2 $N) ; do
+        uuid=$(dbus-uuidgen)
+        echo user${i}@example.com,$uuid >> indices.csv
+        echo $sha,$uuid >> indices.csv
+    done
+fi
 
-echo "Signing $N artifacts with 1 key" 1>&2
-user=user1@example.com
-for i in $(seq 1 $N) ; do
-    sig=${dir}/$(uuidgen).asc
-    (
-    gpg --armor -u $user --output $sig --detach-sig ${dir}/blob${i} 1>&2
-    rekor-cli upload --rekor_server $REKOR_URL --signature $sig --public-key ${dir}/${user}.key --artifact ${dir}/blob${i} 1>&2
-    ) &
-done
-
-wait
-
-echo "Signing 1 artifact with $N keys" 1>&2
-echo $RANDOM > ${dir}/blob1
-for i in $(seq 2 $N) ; do
-    # Create temporary signing keys, except for user2 which will be needed later
-    if [ $i -eq 2 ] ; then
-        name=user2
-    else
-        name=tmp${i}
+if [ "${INDEX_BACKEND}" == "redis" ] ; then
+    redis_ip=$(gcloud redis instances describe rekor-index --region us-west1 --format='get(host)')
+    while read LINE ; do
+        key=$(echo $LINE | cut -d',' -f1)
+        val=$(echo $LINE | cut -d',' -f2)
+        printf "*3\r\n\$5\r\nLPUSH\r\n\$${#key}\r\n${key}\r\n\$${#val}\r\n${val}\r\n"
+    done < indices.csv | redis-cli -h $redis_ip --pipe
+else
+    if [ -z "${MYSQL_PASS}" ] ; then
+        echo 'Set $MYSQL_PASS for the trillian mysql user. This value can be found from your terraform host using `terraform output -json | jq -r .mysql_pass.value`.'
+        exit 1
     fi
-    createkey $name
-    sig=${dir}/$(uuidgen).asc
-    user=${name}@example.com
-    (
-        gpg --armor -u $user --output $sig --detach-sig ${dir}/blob1 1>&2
-        rekor-cli upload --rekor_server $REKOR_URL --signature $sig --public-key ${dir}/${user}.key --artifact ${dir}/blob1 1>&2
-    ) &
-    if [ $i -ne 2 ] ; then
-        deletekey tmp${i}
-    fi
-done
 
-wait
+    mysql_ip=$(gcloud sql instances describe rekor-perf-tf --format='get(ipAddresses[0].ipAddress)')
 
-echo $dir
+    mysql -h $mysql_ip -P 3306 -utrillian -p${MYSQL_PASS}  -D trillian < indices.sql
+fi

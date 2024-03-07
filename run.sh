@@ -13,7 +13,8 @@ cleanup() {
 
 echo -n > perf.log
 
-RUNS=${1:-1000}
+INSERT_RUNS=${INSERT_RUNS:-1000}
+SEARCH_ENTRIES=${SEARCH_ENTRIES:-100000}
 INDEX_BACKEND=${INDEX_BACKEND:-redis}
 
 echo "Gathering insertion and retrieval metrics for index backend [${INDEX_BACKEND}]."
@@ -35,8 +36,8 @@ cleanup_prom() {
 }
 trap 'cleanup cleanup_prom' EXIT
 
-echo "Uploading entries..."
-DIR=$(./upload.sh $RUNS 2>> perf.log)
+echo "Inserting entries..."
+DIR=$(./insert.sh $INSERT_RUNS 2>> perf.log)
 cleanup_all() {
     cleanup_prom
     rm -rf $DIR
@@ -48,8 +49,14 @@ trap 'cleanup cleanup_all' EXIT
 echo "Getting metrics for inserts..."
 ./query-inserts.sh
 
+echo "Uploading entries..."
+./upload.sh $SEARCH_ENTRIES
+
 echo "Running search requests..."
 ./search.sh $DIR >> perf.log 2>&1
 
 echo "Getting metrics for searches..."
 ./query-search.sh
+
+echo "Resetting data..."
+./reset.sh

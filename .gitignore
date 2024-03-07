@@ -1,3 +1,4 @@
-rekor
 prometheus
 perf.log
+indices.csv
+settings.var
