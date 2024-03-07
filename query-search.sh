@@ -22,3 +22,10 @@ if [ "${avg}" == "null" ] ; then
 fi
 
 echo "Search latency: ${avg} (average over ${count} searches)"
+results=${INDEX_BACKEND}.dat
+if [ "$INDEX_BACKEND" == "redis" ] ; then
+    x=3
+else
+    x=2
+fi
+echo "$x \"${INDEX_BACKEND} searches (${count})\" $avg" >> $results

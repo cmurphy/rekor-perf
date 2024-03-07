@@ -30,3 +30,10 @@ if [ "${avg}" == "null" ] ; then
 fi
 
 echo "Insert latency: ${avg} (average over ${count} inserts)"
+results=${INDEX_BACKEND}.dat
+if [ "$INDEX_BACKEND" == "redis" ] ; then
+    x=1
+else
+    x=0
+fi
+echo "$x \"${INDEX_BACKEND} inserts (${count})\" $avg" > $results
