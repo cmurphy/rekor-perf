@@ -3,6 +3,7 @@
 N=$1
 
 if [ ! -f indices.csv ] ; then
+    echo "Generating $N * 2 entries. This may take a while..."
     # N artifacts, 1 user
     for i in $(seq 1 $N) ; do
         uuid=$(dbus-uuidgen)
