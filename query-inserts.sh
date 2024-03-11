@@ -36,4 +36,4 @@ if [ "$INDEX_BACKEND" == "redis" ] ; then
 else
     x=0
 fi
-echo "$x \"${INDEX_BACKEND} inserts (${count})\" $avg" > $results
+echo "$x \"${INDEX_BACKEND} inserts\n(avg over ${count})\" $avg" > $results

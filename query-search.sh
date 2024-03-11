@@ -28,4 +28,4 @@ if [ "$INDEX_BACKEND" == "redis" ] ; then
 else
     x=2
 fi
-echo "$x \"${INDEX_BACKEND} searches (${count})\" $avg" >> $results
+echo "$x \"${INDEX_BACKEND} searches (avg over ${count})\" $avg" >> $results

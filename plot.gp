@@ -12,8 +12,9 @@ set ylabel "Latency (nanoseconds)"
 set format y '%.0f'
 set bmargin 6
 set grid y
+set tics font "sans,10"
 
 plot "results.dat" every ::0::1 using 1:3:xtic(2) with boxes linestyle 1 notitle, \
-    "results.dat" every ::0::1 using 1:($3+200000):(sprintf('%3.2f', $3)) with labels notitle, \
+    "results.dat" every ::0::1 using 1:($3+500000):(sprintf('%3.2f', $3)) with labels font "sans,10" notitle, \
     "results.dat" every ::2::3 using 1:3:xtic(2) with boxes linestyle 2 notitle, \
-    "results.dat" every ::2::3 using 1:($3+200000):(sprintf('%3.2f', $3)) with labels notitle
+    "results.dat" every ::2::3 using 1:($3+500000):(sprintf('%3.2f', $3)) with labels font "sans,10" notitle
