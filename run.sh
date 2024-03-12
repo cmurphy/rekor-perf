@@ -17,7 +17,7 @@ REGION=${REGION:-us-west1}
 
 setup_bastion() {
     echo "Configuring the bastion..."
-    sudo apt install kubernetes-client google-cloud-sdk-gke-gcloud-auth-plugin git redis-tools gnuplot prometheus -y
+    sudo apt install kubernetes-client google-cloud-sdk-gke-gcloud-auth-plugin git redis-tools gnuplot prometheus minisign -y
     which hyperfine >/dev/null || ( wget -O /tmp/hyperfine_1.16.1_amd64.deb https://github.com/sharkdp/hyperfine/releases/download/v1.16.1/hyperfine_1.16.1_amd64.deb && sudo dpkg -i /tmp/hyperfine_1.16.1_amd64.deb )
     which helm >/dev/null || ( wget -O helm-v3.14.2-linux-amd64.tar.gz https://get.helm.sh/helm-v3.14.2-linux-amd64.tar.gz && tar -xzf helm-v3.14.2-linux-amd64.tar.gz -C /tmp/helm && sudo mv /tmp/helm/helm /usr/local/bin/ )
     which rekor-cli >/dev/null || ( wget -O /tmp/rekor-cli-linux-amd64 https://github.com/sigstore/rekor/releases/download/v1.3.5/rekor-cli-linux-amd64 && sudo install -m 0755 /tmp/rekor-cli-linux-amd64 /usr/local/bin/rekor-cli )
@@ -127,21 +127,7 @@ EOF
 
 create_key() {
     name=$1
-    gpg --batch --gen-key 2>/dev/null <<EOF
-Key-Type: 1
-Key-Length: 256
-Name-Real: $name
-Name-Email: $name@example.com
-Expire-Date: 1
-%no-protection
-EOF
-    gpg --export --armor ${name}@example.com > ${DIR}/${name}@example.com.key
-}
-
-delete_key() {
-    email=$1
-    gpg --list-secret-keys --with-colons --fingerprint | grep -B2 ${email} | sed -n 's/^fpr:::::::::\([[:alnum:]]\+\):/\1/p' | xargs gpg --batch --yes --delete-secret-keys
-    gpg --list-keys --with-colons --fingerprint | grep -B1 ${email} | sed -n 's/^fpr:::::::::\([[:alnum:]]\+\):/\1/p' | xargs gpg --batch --yes --delete-keys
+    minisign -G -p $DIR/$name@example.com.pub -s $DIR/$name@example.com.key -W >/dev/null
 }
 
 # Upload $INSERT_RUNS rekords of $INSERT_RUNS artifacts signed by 1 key, and $INSERT_RUNS rekords of 1 artifact signed by $INSERT_RUNS keys
@@ -153,45 +139,51 @@ insert() {
     for i in $(seq 1 $N) ; do
         echo hello${i} > ${DIR}/blob${i}
     done
-    # Create an extra that won't ever be signed
-    echo hellohello > ${DIR}/blobnone
     # Create one signing key
     create_key user1
-    # Create a key that won't be used
-    create_key notreal
 
     echo "Signing $N artifacts with 1 key"
     user=user1@example.com
-    for i in $(seq 1 $N) ; do
-        sig=${DIR}/$(uuidgen).asc
-        (
-        gpg --armor -u $user --output $sig --detach-sig ${DIR}/blob${i}
-        rekor-cli upload --rekor_server $REKOR_URL --signature $sig --public-key ${DIR}/${user}.key --artifact ${DIR}/blob${i}
-        ) &
+    local batch=0
+    while [ $batch -lt $N ] ; do
+        for i in $(seq 1 100) ; do
+            let id=$batch+$i
+            if [ $id -gt $N ] ; then
+                break
+            fi
+            sig=${DIR}/$(uuidgen).asc
+            (
+                minisign -S -x $sig -s $DIR/$user.key -m ${DIR}/blob${id}
+                rekor-cli upload --rekor_server $REKOR_URL --signature $sig --public-key ${DIR}/${user}.pub --artifact ${DIR}/blob${id} --pki-format=minisign
+            ) &
+        done
+        wait $(jobs -p | grep -v $PROM_PID)
+        let batch+=100
     done
-    wait
 
     echo "Signing 1 artifact with $N keys"
     echo $RANDOM > ${DIR}/blob1
-    for i in $(seq 2 $N) ; do
-        # Create temporary signing keys, except for user2 which will be needed later
-        if [ $i -eq 2 ] ; then
-            name=user2
-        else
-            name=tmp${i}
-        fi
-        create_key $name
-        sig=${DIR}/$(uuidgen).asc
-        user=${name}@example.com
-        (
-            gpg --armor -u $user --output $sig --detach-sig ${DIR}/blob1
-            rekor-cli upload --rekor_server $REKOR_URL --signature $sig --public-key ${DIR}/${user}.key --artifact ${DIR}/blob1
-        ) &
-        if [ $i -ne 2 ] ; then
-            delete_key tmp${i}@example.com
-        fi
+    local batch=0
+    while [ $batch -lt $N ] ; do
+        for i in $(seq 1 100) ; do
+            let id=$batch+$i
+            if [ $id -gt $N ] ; then
+                break
+            fi
+            (
+                name=tmp${id}
+                user=${name}@example.com
+                create_key $name
+                sig=${DIR}/$(uuidgen).asc
+                minisign -S -x $sig -s $DIR/$user.key -m ${DIR}/blob1
+                rekor-cli upload --rekor_server $REKOR_URL --signature $sig --public-key ${DIR}/${user}.pub --artifact ${DIR}/blob1 --pki-format=minisign
+            ) &
+        done
+        wait $(jobs -p | grep -v $PROM_PID)
+        let batch+=100
     done
-    wait
+
+    rm -rf $DIR
 }
 
 query_inserts() {
@@ -370,13 +362,6 @@ if [ "${BASH_SOURCE[0]}" == "${0}" ]; then
     trap 'cleanup cleanup_prom' EXIT
 
     insert
-    cleanup_all() {
-        cleanup_prom
-        rm -rf $DIR
-        echo "Cleaning up keys..."
-        delete_key example.com
-    }
-    trap 'cleanup cleanup_all' EXIT
 
     query_inserts
 
