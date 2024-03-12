@@ -354,6 +354,10 @@ if [ "${BASH_SOURCE[0]}" == "${0}" ]; then
 
     setup_rekor
 
+    if [ -n "$RESET" ] ; then
+        reset
+    fi
+
     setup_prometheus
     cleanup_prom() {
         echo "Cleaning up prometheus..."
@@ -370,6 +374,4 @@ if [ "${BASH_SOURCE[0]}" == "${0}" ]; then
     search
 
     query_search
-
-    reset
 fi
