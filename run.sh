@@ -50,7 +50,8 @@ server:
   extraArgs:
     - --search_index.storage_provider=redis
 EOF
-        helm upgrade rekor sigstore/rekor -n rekor-system --values values.yaml --values index-values.yaml
+        helm upgrade -i rekor sigstore/rekor -n rekor-system --create-namespace --values values.yaml --values index-values.yaml
+        kubectl -n rekor-system rollout status deploy rekor-server
     else
         export MYSQL_IP=$(gcloud sql instances describe rekor-perf-tf --format='get(ipAddresses[0].ipAddress)')
         cat >index-values.yaml <<EOF
@@ -59,7 +60,7 @@ server:
     - --search_index.storage_provider=mysql
     - --search_index.mysql.dsn=trillian:\$(MYSQL_PASSWORD)@tcp(${MYSQL_IP}:3306)/trillian
 EOF
-        helm upgrade -i rekor sigstore/rekor -n rekor-system --values values.yaml --values mysql-args-values.yaml
+        helm upgrade -i rekor sigstore/rekor -n rekor-system --create-namespace --values values.yaml --values mysql-args-values.yaml
         echo -n $MYSQL_PASS | kubectl -n rekor-system create secret generic mysql-credentials --save-config --dry-run=client --output=yaml --from-file=mysql-password=/dev/stdin | kubectl apply -f -
         cat > patch.yaml <<EOF
 spec:
@@ -75,6 +76,7 @@ spec:
               key: mysql-password
 EOF
         kubectl -n rekor-system patch deployment rekor-server --patch-file=patch.yaml
+        kubectl -n rekor-system rollout status deploy rekor-server
     fi
     kubectl apply -f - <<EOF
 apiVersion: v1
