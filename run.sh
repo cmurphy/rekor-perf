@@ -239,7 +239,7 @@ upload() {
             uuid=$(dbus-uuidgen)
             echo user1@example.com,$uuid >> indices.csv
             sha=$(echo $i | sha256sum | cut -d ' ' -f 1)
-            echo $sha,$uuid >> indices.csv
+            echo sha256:$sha,$uuid >> indices.csv
         done
 
         # 1 artifact, N users
@@ -247,7 +247,7 @@ upload() {
         for i in $(seq 2 $N) ; do
             uuid=$(dbus-uuidgen)
             echo user${i}@example.com,$uuid >> indices.csv
-            echo $sha,$uuid >> indices.csv
+            echo sha256:$sha,$uuid >> indices.csv
         done
     fi
 
@@ -274,9 +274,9 @@ upload() {
 
 search() {
     echo "Running search requests..."
-    sumblob1=$(sha256sum ${DIR}/blob1 | cut -d ' ' -f1)
-    sumblob2=$(sha256sum ${DIR}/blob2 | cut -d ' ' -f1)
-    sumblobnone=$(sha256sum ${DIR}/blobnone | cut -d ' ' -f1)
+    sumblob1=$(echo 1 | sha256sum | cut -d ' ' -f1)
+    sumblob2=$(echo 2 | sha256sum | cut -d ' ' -f1)
+    sumblobnone=$(echo none | sha256sum | cut -d ' ' -f1)
     # Search for entries using public key user1@example.com (should be many), user2@example.com (should be few), notreal@example.com (should be none)
     hyperfine --style basic --warmup 10 --ignore-failure --parameter-list email user1@example.com,user2@example.com,notreal@example.com "rekor-cli search --rekor_server $REKOR_URL --email {email}"
     # Search for entries using the sha256 sum of blob1 (should be many), blob2 (should be few), blobnone (should be none)
