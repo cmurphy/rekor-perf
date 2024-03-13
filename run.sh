@@ -361,7 +361,7 @@ if [ "${BASH_SOURCE[0]}" == "${0}" ]; then
     setup_prometheus
     cleanup_prom() {
         echo "Cleaning up prometheus..."
-        kill $PROM_PID
+        pkill -x prometheus
     }
     trap 'cleanup cleanup_prom' EXIT
 
