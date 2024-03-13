@@ -225,7 +225,7 @@ query_inserts() {
         x=0
     fi
     # output to gnuplot data set
-    echo "$x \"${INDEX_BACKEND} inserts (${count})\" $avg" > $results
+    echo "$x \"${INDEX_BACKEND} inserts\n(${count})\" $avg" > $results
 }
 
 upload() {
@@ -323,7 +323,7 @@ query_search() {
         x=2
     fi
     # output to gnuplot data set
-    echo "$x \"${INDEX_BACKEND} searches (${count})\" $avg" >> $results
+    echo "$x \"${INDEX_BACKEND} searches\n(${count})\" $avg" >> $results
 }
 
 reset() {
