@@ -125,12 +125,7 @@ EOF
     export PROM_PID=$!
 }
 
-create_key() {
-    name=$1
-    minisign -G -p $DIR/$name@example.com.pub -s $DIR/$name@example.com.key -W >/dev/null
-}
-
-# Upload $INSERT_RUNS rekords of $INSERT_RUNS artifacts signed by 1 key, and $INSERT_RUNS rekords of 1 artifact signed by $INSERT_RUNS keys
+# Upload $INSERT_RUNS rekords of $INSERT_RUNS artifacts signed by 1 key
 insert() {
     echo "Inserting entries..."
     local N=$INSERT_RUNS
@@ -139,8 +134,8 @@ insert() {
     for i in $(seq 1 $N) ; do
         echo hello${i} > ${DIR}/blob${i}
     done
-    # Create one signing key
-    create_key user1
+    # Create a signing key
+    minisign -G -p $DIR/user1@example.com.pub -s $DIR/user1@example.com.key -W >/dev/null
 
     echo "Signing $N artifacts with 1 key"
     user=user1@example.com
@@ -155,28 +150,6 @@ insert() {
             (
                 minisign -S -x $sig -s $DIR/$user.key -m ${DIR}/blob${id}
                 rekor-cli upload --rekor_server $REKOR_URL --signature $sig --public-key ${DIR}/${user}.pub --artifact ${DIR}/blob${id} --pki-format=minisign
-            ) &
-        done
-        wait $(jobs -p | grep -v $PROM_PID)
-        let batch+=100
-    done
-
-    echo "Signing 1 artifact with $N keys"
-    echo $RANDOM > ${DIR}/blob1
-    local batch=0
-    while [ $batch -lt $N ] ; do
-        for i in $(seq 1 100) ; do
-            let id=$batch+$i
-            if [ $id -gt $N ] ; then
-                break
-            fi
-            (
-                name=tmp${id}
-                user=${name}@example.com
-                create_key $name
-                sig=${DIR}/$(uuidgen).asc
-                minisign -S -x $sig -s $DIR/$user.key -m ${DIR}/blob1
-                rekor-cli upload --rekor_server $REKOR_URL --signature $sig --public-key ${DIR}/${user}.pub --artifact ${DIR}/blob1 --pki-format=minisign
             ) &
         done
         wait $(jobs -p | grep -v $PROM_PID)
