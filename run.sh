@@ -252,23 +252,33 @@ upload() {
     fi
 
     if [ "${INDEX_BACKEND}" == "redis" ] ; then
-        while read LINE ; do
-            key=$(echo $LINE | cut -d',' -f1)
-            val=$(echo $LINE | cut -d',' -f2)
-            printf "*3\r\n\$5\r\nLPUSH\r\n\$${#key}\r\n${key}\r\n\$${#val}\r\n${val}\r\n"
-        done < indices.csv | redis-cli -h $REDIS_IP --pipe
+        local dbsize=$(redis-cli -h $REDIS_IP dbsize | cut -d ' ' -f 2)
+        let wantsize=$SEARCH_ENTRIES*2
+        if [ ! $dbsize -ge $wantsize ] ; then
+            echo "Uploading entries into redis..."
+            while read LINE ; do
+                key=$(echo $LINE | cut -d',' -f1)
+                val=$(echo $LINE | cut -d',' -f2)
+                printf "*3\r\n\$5\r\nLPUSH\r\n\$${#key}\r\n${key}\r\n\$${#val}\r\n${val}\r\n"
+            done < indices.csv | redis-cli -h $REDIS_IP --pipe
+        fi
     else
-        mysql -h $MYSQL_IP -P 3306 -utrillian -p${MYSQL_PASS}  -D trillian -e "CREATE TABLE IF NOT EXISTS EntryIndex (
-                PK BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-                EntryKey varchar(512) NOT NULL,
-                EntryUUID char(80) NOT NULL,
-                PRIMARY KEY(PK),
-                UNIQUE(EntryKey, EntryUUID)
-        );
-        LOAD DATA LOCAL INFILE './indices.csv'
-        INTO TABLE EntryIndex
-        FIELDS TERMINATED BY ','
-        LINES TERMINATED BY '\n' (EntryKey, EntryUUID);"
+        local dbsize=$(mysql -h $MYSQL_IP -P 3306 -utrillian -p${MYSQL_PASS} -D trillian -e "SELECT COUNT(*) FROM EntryIndex" --vertical | tail -1 | cut -d ' ' -f 2)
+        let wantsize=$SEARCH_ENTRIES*4
+        if [ ! $dbsize -ge $wantsize ] ; then
+            echo "Uploading entries into mysql..."
+            mysql -h $MYSQL_IP -P 3306 -utrillian -p${MYSQL_PASS} -D trillian -e "CREATE TABLE IF NOT EXISTS EntryIndex (
+                    PK BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+                    EntryKey varchar(512) NOT NULL,
+                    EntryUUID char(80) NOT NULL,
+                    PRIMARY KEY(PK),
+                    UNIQUE(EntryKey, EntryUUID)
+            );
+            LOAD DATA LOCAL INFILE './indices.csv'
+            INTO TABLE EntryIndex
+            FIELDS TERMINATED BY ','
+            LINES TERMINATED BY '\n' (EntryKey, EntryUUID);"
+        fi
     fi
 }
 
